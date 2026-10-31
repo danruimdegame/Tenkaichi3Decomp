@@ -1675,6 +1675,12 @@ void BtlMove_UpdateDefenseTimers(BtlMoveChr *chr) {
             chr->unk1070 = -1;
         }
     }
+#ifdef PORT
+    {
+        extern void PortZc_Window(s32 d, s32 window); /* port/src/zc_train.c: o aperto de Cima + Quadrado, só lê */
+        PortZc_Window(chr->player, chr->unk1070);
+    }
+#endif
     chr->unk1074--;
     if (chr->unk1074 < -15) {
         chr->unk1074 = -15;

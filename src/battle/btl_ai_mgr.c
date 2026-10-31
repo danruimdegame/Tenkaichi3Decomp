@@ -132,6 +132,12 @@ void BtlAiMgr_Init(void) {
         memset(gBtlAi = Heap_Alloc(0xA60, 0x20, 0, 2), 0, 0xA60);
     }
     BtlAiMgr_Reset();
+#ifdef PORT
+    {
+        extern void PortZc_BattleStart(void); /* port/src/zc_train.c */
+        PortZc_BattleStart();
+    }
+#endif
 }
 
 /* Frees what the block owns, then the block. */
@@ -276,6 +282,41 @@ void BtlAiMgr_Update(void) {
             BtlAi_SendInput(s);
         }
     }
+#ifdef PORT
+    {
+        /* Treino de Z-Counter (port/src/zc_train.c): o boneco troca os botões da IA do lado da CPU por um roteiro,
+           e a vida e o ki dos dois lutadores são repostos. Só fora do online (PortZc_DummyActive). */
+        extern void PortZc_SetCpu(s32 d, s32 cpu);
+        extern s32 PortZc_DummyButtons(s32 d, s32 close);
+        extern s32 PortZc_Refill(void);
+        extern void BtlCharApi_SetInjectedInput(s32 objId, u32 buttons, f32 stickX, f32 stickY);
+        extern s32 *BtlMember_GetActiveGauge(BtlAiMgrChr *chr); /* health, healthMax, unk8, ki, kiMax */
+        s32 refill = PortZc_Refill();
+
+        for (i = 0; i < BtlChar_GetCount() && i < 2; i++) {
+            s32 cpu = BtlCharApi_IsInputInjected(i);
+
+            PortZc_SetCpu(i, cpu);
+            if (cpu) {
+                s32 b = PortZc_DummyButtons(i, BtlCharApi_IsClose(i));
+                if (b >= 0) {
+                    BtlCharApi_SetInjectedInput(i, (u32)b, 0.0f, 0.0f);
+                }
+            }
+            if (refill) {
+                s32 *g = BtlMember_GetActiveGauge(BtlChar_Get(i));
+                if (g != NULL) {
+                    if (refill & 1) {
+                        g[0] = g[1];
+                    }
+                    if (refill & 2) {
+                        g[3] = g[4];
+                    }
+                }
+            }
+        }
+    }
+#endif
 }
 
 /* Picks at random one of the directions the stage limits allow: 0 always; in mode 2 also 1 when a fighter

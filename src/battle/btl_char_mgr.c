@@ -693,6 +693,12 @@ void BtlChars_UpdateCollision(void) {
             BtlColl_UpdateFrozen(BtlChar_Get(i));
         }
     }
+#ifdef PORT
+    {
+        extern void PortZc_FrameEnd(void); /* port/src/zc_train.c: o relógio do avisador, só lê */
+        PortZc_FrameEnd();
+    }
+#endif
 }
 
 /* Raises this frame's battle events for one fighter. */

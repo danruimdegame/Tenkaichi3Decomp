@@ -1288,6 +1288,11 @@ static const char *pad_source_name(int src) {
     return other;
 }
 
+// Treino de Z-Counter (zc_train_ui.cpp): o painel sobre a luta e a aba "Treino".
+bool ZcTrain_OverlayOn(void);
+void ZcTrain_Draw(void);
+void ZcTrain_Tab(float scale);
+
 static bool tab(const char *label, int index) {
     ImGuiTabItemFlags flags = sForceTab == index ? ImGuiTabItemFlags_SetSelected : 0;
     bool on = ImGui::BeginTabItem(label, NULL, flags);
@@ -2268,7 +2273,7 @@ static void build(void) {
         open = false;
     }
     if (sForceTab < 0 && (pad_pressed(ImGuiKey_GamepadL1) || pad_pressed(ImGuiKey_GamepadR1))) {
-        sForceTab = (sTab + (ImGui::IsKeyPressed(ImGuiKey_GamepadL1, false) ? 7 : 1)) % 8;
+        sForceTab = (sTab + (ImGui::IsKeyPressed(ImGuiKey_GamepadL1, false) ? 8 : 1)) % 9;
         sPadTab = true;
     }
     ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * 0.5f, io.DisplaySize.y * 0.5f), ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
@@ -2360,6 +2365,7 @@ static void build(void) {
             if (tab("Cheats", 5)) { cheats_tab(); ImGui::EndTabItem(); }
             if (tab("Misc", 6)) { misc_tab(); ImGui::EndTabItem(); }
             if (tab("Online", 7)) { online_tab(); ImGui::EndTabItem(); }
+            if (tab("Treino", 8)) { ZcTrain_Tab(U(1.0f)); ImGui::EndTabItem(); }
             ImGui::EndTabBar();
         }
         ImGui::EndChild();
@@ -2911,8 +2917,9 @@ static bool frame_build(void) {
     meter_count();
     sBuilt = false;
     bool upd = updLine[0] != '\0';
+    bool zc = sReady && ZcTrain_OverlayOn(); // the Z-Counter trainer's panel (zc_train_ui.cpp)
     UiA11y_Frame(sReady && sOpen && !sQuit, !sQuit); // (the screen reader in the windows: ui_a11y.cpp)
-    if (!sReady || (!sOpen && !sQuit && !notice && !overlay && !meter && !names && !bars && !chat && !banner && !saving && !watched && !upd)) {
+    if (!sReady || (!sOpen && !sQuit && !notice && !overlay && !meter && !names && !bars && !chat && !banner && !saving && !watched && !upd && !zc)) {
         return false;
     }
     if (sPadHold && sCapKind != 2) { // a binding was taken: the controller works the window again once nothing is held
@@ -3022,6 +3029,9 @@ static bool frame_build(void) {
             }
         }
         dl->AddText(font, size, ImVec2(x, y), IM_COL32(255, 236, 120, 255), sBanner, NULL, wrap);
+    }
+    if (zc) {
+        ZcTrain_Draw();
     }
     if (saving) {
         save_icon_draw(now);

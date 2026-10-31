@@ -674,6 +674,12 @@ s32 BtlHit_CheckGuard(HitChr *atk, HitChr *def, s32 *full) {
     if (BtlChar_GetObj(atk)->hitNo == 0 && (BtlAnim_GetFlags(BtlAnim_GetId(def)) & 0x31) && def->unk1070 > 0) {
         BtlHit_ApplyGuard(atk, def, 8);
         *full = 0;
+#ifdef PORT
+        {
+            extern void PortZc_Counter(s32 d); /* port/src/zc_train.c: só lê */
+            PortZc_Counter(def->player);
+        }
+#endif
         return 1;
     }
     if (guard != 6) {
@@ -1050,6 +1056,13 @@ void BtlHit_TestHit(HitChr *chr) {
         }
         if (ok) {
             BtlChar_SetHeldFlag(chr, 0x60);
+#ifdef PORT
+            {
+                /* port/src/zc_train.c: o frame em que o Z-Counter teria de ser apertado (só lê) */
+                extern void PortZc_HitTest(s32 d, s32 firstHit, s32 anim);
+                PortZc_HitTest(oppIdx, obj->hitNo == 0, (BtlAnim_GetFlags(BtlAnim_GetId(opp)) & 0x31) != 0);
+            }
+#endif
             if (BtlHit_IsVoid(chr, opp) || BtlHit_CheckDodge(chr, opp) || BtlHit_CheckArmor(chr, opp) ||
                 BtlHit_CheckRepel(chr, opp)) {
                 BtlChar_SetHeldFlag(chr, 0x5C);
