@@ -1,0 +1,106 @@
+# Versão com o Treino de Z-Counter sempre em dia com o projeto oficial.
+#
+# Uma vez por dia (e pelo botão "Run workflow"): busca a main do projeto oficial (z3xox/Tenkaichi3Decomp); se ela
+# tem coisa nova desde a última versão publicada aqui, junta com o mod desta main, compila o zip do Windows e o
+# publica como release "treino-<commit oficial>". O link de download fica sempre em
+#     https://github.com/<este fork>/releases/latest
+# e quem baixa não precisa de conta no GitHub.
+#
+# O programa compilado sai como versão "dev": ele nunca se atualiza sozinho para a versão oficial (o que apagaria
+# o mod). Para jogar online contra quem usa a versão oficial, use o .exe oficial.
+#
+# Se o projeto oficial mudar exatamente as linhas que o mod toca, a junção falha e esta execução fica vermelha
+# (o GitHub manda um e-mail); a última versão publicada continua valendo até o mod ser ajustado.
+name: treino
+
+on:
+  schedule:
+    - cron: "17 9 * * *"   # todo dia, 06:17 no horário de Brasília
+  workflow_dispatch:
+    inputs:
+      force:
+        description: "Compilar mesmo sem novidade no projeto oficial"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write   # publicar a release
+
+concurrency:
+  group: treino
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 90
+    env:
+      GH_REPO: ${{ github.repository }}   # (o gh preferiria o remoto "upstream", o oficial)
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Juntar com o projeto oficial
+        id: sync
+        env:
+          GH_TOKEN: ${{ github.token }}
+          FORCE: ${{ inputs.force }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git remote add upstream https://github.com/z3xox/Tenkaichi3Decomp.git
+          git fetch --no-tags upstream main
+          up=$(git rev-parse --short=10 upstream/main)
+          tag="treino-$up"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "upstream=$up" >> "$GITHUB_OUTPUT"
+          if gh release view "$tag" >/dev/null 2>&1 && [ "$FORCE" != "true" ]; then
+            echo "A versão oficial $up já foi publicada com o mod: nada a fazer."
+            echo "skip=1" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if ! git merge --no-edit upstream/main; then
+            git merge --abort || true
+            echo "::error title=Conflito com a versão oficial::O projeto oficial mudou linhas que o mod também muda. A última versão publicada continua valendo; o mod precisa ser ajustado."
+            exit 1
+          fi
+          echo "skip=0" >> "$GITHUB_OUTPUT"
+
+      # O mesmo contêiner de compilação do release.yml (com o mesmo cache)
+      - if: steps.sync.outputs.skip == '0'
+        uses: docker/setup-buildx-action@v3
+      - if: steps.sync.outputs.skip == '0'
+        uses: docker/build-push-action@v6
+        with:
+          context: port/release
+          tags: bt3-port-release:jammy
+          load: true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Compilar
+        if: steps.sync.outputs.skip == '0'
+        run: |
+          mkdir -p port/build
+          docker run --rm -u "$(id -u):$(id -g)" -e HOME=/tmp -v "$PWD":/src -w /src \
+            bt3-port-release:jammy sh port/release/inside.sh
+
+      - name: Publicar
+        if: steps.sync.outputs.skip == '0'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.sync.outputs.tag }}
+          UP: ${{ steps.sync.outputs.upstream }}
+        run: |
+          mv port/build/Tenkaichi3Decomp-windows-x64.zip "port/build/Tenkaichi3Decomp-treino-windows-x64.zip"
+          cat > notes.md <<EOF
+          Tenkaichi3Decomp com o **Treino de Z-Counter** (aba Treino no F1), feito sobre a versão oficial \`$UP\`.
+
+          **Como instalar:** baixe o zip abaixo, renomeie o seu \`Tenkaichi3Decomp.exe\` para \`Tenkaichi3Decomp-original.exe\`
+          (para jogar online) e copie o \`Tenkaichi3Decomp.exe\` de dentro do zip para a pasta do jogo.
+          Precisa do jogo já instalado com o seu próprio disco.
+          EOF
+          gh release delete "$TAG" --yes --cleanup-tag >/dev/null 2>&1 || true
+          gh release create "$TAG" --target "$GITHUB_SHA" --title "Treino de Z-Counter ($UP)" --notes-file notes.md --latest \
+            "port/build/Tenkaichi3Decomp-treino-windows-x64.zip"

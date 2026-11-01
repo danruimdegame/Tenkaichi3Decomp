@@ -36,3 +36,9 @@ O boneco e a vida infinita escrevem no estado da luta: ficam desligados no onlin
 | `src/battle/btl_ai_mgr.c` | gancho `#ifdef PORT`: os botões do boneco e a reposição de vida e ki |
 
 Opções gravadas: `zc_overlay`, `zc_dummy`, `zc_period`, `zc_refill`.
+
+## Versão sempre atualizada
+
+`.github/workflows/treino.yml` roda todo dia: se o projeto oficial (z3xox/Tenkaichi3Decomp) tem coisa nova, junta
+com o mod, compila o zip do Windows e o publica como release. O download mais recente fica em
+`https://github.com/danruimdegame/Tenkaichi3Decomp/releases/latest`, sem precisar de conta no GitHub.
