@@ -18,7 +18,8 @@ Um mod de treino para o Z-Counter (Cima + Quadrado). Fica na janela do F1, aba *
 - **Avisador** (painel embaixo, no meio da luta): o resultado de cada tentativa (PERFEITO, X frames cedo, X frames
   tarde, travado, ou "na hora, mas sem counter aqui" quando a sua animação naquele momento não tem a flag 0x31),
   uma régua de -8 a +8 frames, uma luz que pisca no frame exato do primeiro hit de cada golpe (verde quando o
-  counter era possível), a barra da trava e os números da sessão. Só lê o jogo.
+  counter era possível), a barra da trava e os números da sessão. Só lê o jogo, então também aparece no online
+  (para quem joga, não para quem assiste).
 - **Boneco de treino**: troca os botões da IA do lado da CPU por um roteiro: golpe único em ritmo fixo, rush combo
   em loop, golpe único com intervalo aleatório, parado, ou só defende. Longe do adversário ele vai até você (dash).
 - **Vida e ki infinitos** enquanto o boneco está ligado.

@@ -11,7 +11,9 @@
  * cada frame: o aperto (aceito ou travado), o teste do primeiro hit de cada golpe e o counter que saiu. Isto
  * compara os frames e guarda o resultado para o painel (gs/zc_train_ui.cpp), que o desenha.
  *
- * O avisador só lê: não escreve na memória do jogo nem tira números do gerador do jogo. O boneco
+ * O avisador só lê: não escreve na memória do jogo nem tira números do gerador do jogo, então vale também no
+ * online (as partidas continuam iguais nos dois lados). Os frames refeitos por um rollback não são contados de novo:
+ * o painel mostra o que aconteceu na tela na hora. O boneco
  * (PortZc_DummyButtons, chamado em btl_ai_mgr.c) troca os botões da IA do lado da CPU por um roteiro, e a vida e
  * o ki infinitos (PortZc_Refill) escrevem nas barras: os dois só valem fora do online. As variáveis daqui não são
  * estado do jogo (port/tools/make_state.py).
@@ -23,6 +25,7 @@
 
 extern int gPortResim;              /* gs/state.c: frames sendo refeitos depois de um rollback */
 extern int Port_NetActive(void);    /* gs/net.c */
+extern int Port_NetMe(void);        /* gs/net.c: o lado deste jogador numa partida online, 0 ou 1 */
 extern int Port_Setting(const char *name, int def); /* plat_settings.c */
 extern void Port_SettingSave(const char *name, int value);
 extern void Port_SettingsWrite(void);
@@ -73,6 +76,9 @@ static int sCpu[2];       /* lado controlado pela CPU, visto neste frame */
 static PortZcView sView;  /* o que o painel lê (outra thread: um valor rasgado só dura um quadro) */
 
 static int human_side(void) {
+    if (Port_NetActive()) { /* online: o lado deste jogador (quem entra na partida é o lado 1) */
+        return Port_NetMe() == 1 ? 1 : 0;
+    }
     return sCpu[0] && !sCpu[1] ? 1 : 0;
 }
 

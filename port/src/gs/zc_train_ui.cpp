@@ -14,6 +14,7 @@
 #include "zc_train.h"
 
 extern "C" int Port_NetActive(void);        // gs/net.c
+extern "C" int Port_NetSpectating(void);    // gs/net.c: esta cópia só assiste a uma partida
 extern "C" void *BtlChar_FindByObjId(int objId); // o jogo: o lutador de um lado, NULL fora de uma luta
 
 static int sSeenSeq = -1, sSeenFlash = -1;
@@ -21,7 +22,8 @@ static Uint64 sResultAt, sFlashAt;
 
 // Se o painel deve aparecer agora.
 bool ZcTrain_OverlayOn(void) {
-    return PortZc_Overlay() && !Port_NetActive() && BtlChar_FindByObjId(0) != NULL && gUiPresentW > 0 && gUiPresentH > 0;
+    // (também no online: o painel só lê o jogo; não para quem só assiste, que não tem lado)
+    return PortZc_Overlay() && !Port_NetSpectating() && BtlChar_FindByObjId(0) != NULL && gUiPresentW > 0 && gUiPresentH > 0;
 }
 
 static void outlined(ImDrawList *dl, ImFont *font, float size, ImVec2 p, ImU32 col, const char *text) {
@@ -134,7 +136,7 @@ void ZcTrain_Tab(float scale) {
     }
     ImGui::SetItemTooltip("Mostra, a cada golpe do adversario, se o seu Cima + Quadrado veio cedo, tarde ou no frame certo.\n"
                           "A luz pisca no frame exato do primeiro hit de cada golpe (verde: ali o counter era possivel).\n"
-                          "So le o jogo: nao muda a luta.");
+                          "So le o jogo: nao muda a luta, e por isso tambem aparece no online.");
     ImGui::Spacing();
     ImGui::Separator();
     ImGui::Spacing();
