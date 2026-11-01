@@ -1,15 +1,21 @@
 # Versão com o Treino de Z-Counter sempre em dia com o projeto oficial.
 #
-# Uma vez por dia (e pelo botão "Run workflow"): busca a main do projeto oficial (z3xox/Tenkaichi3Decomp); se ela
-# tem coisa nova desde a última versão publicada aqui, junta com o mod desta main, compila o zip do Windows e o
-# publica como release "treino-<commit oficial>". O link de download fica sempre em
+# Uma vez por dia (e pelo botão "Run workflow"): pega a ÚLTIMA VERSÃO PUBLICADA do projeto oficial
+# (z3xox/Tenkaichi3Decomp, a tag v* mais alta, não o código em desenvolvimento da main), aplica por cima os commits
+# do mod desta main, compila o zip do Windows e o publica como release "treino-<versão>-<mod>". Assim o programa
+# tem o mesmo número de versão das cópias oficiais, que o online exige. O link de download fica sempre em
 #     https://github.com/<este fork>/releases/latest
 # e quem baixa não precisa de conta no GitHub.
 #
-# O programa compilado sai como versão "dev": ele nunca se atualiza sozinho para a versão oficial (o que apagaria
-# o mod). Para jogar online contra quem usa a versão oficial, use o .exe oficial.
+# A chave do servidor de partidas: se os criadores do projeto te autorizarem e te passarem a chave da versão,
+# guarde-a em Settings -> Secrets and variables -> Actions -> New repository secret, nome BT3_BUILD_KEY. A
+# compilação a usa (o log diz "build key: given"); sem ela o programa sai sem chave. A chave vale para um número de
+# versão: a cada versão oficial nova é preciso a chave nova (port/matchmaking/README.md).
 #
-# Se o projeto oficial mudar exatamente as linhas que o mod toca, a junção falha e esta execução fica vermelha
+# O programa compilado sai como versão "dev": ele nunca se atualiza sozinho para a versão oficial (o que apagaria
+# o mod).
+#
+# Se a versão oficial mudar exatamente as linhas que o mod toca, a aplicação falha e esta execução fica vermelha
 # (o GitHub manda um e-mail); a última versão publicada continua valendo até o mod ser ajustado.
 name: treino
 
@@ -41,7 +47,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Juntar com o projeto oficial
+      - name: Aplicar o mod sobre a última versão oficial
         id: sync
         env:
           GH_TOKEN: ${{ github.token }}
@@ -50,21 +56,29 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git remote add upstream https://github.com/z3xox/Tenkaichi3Decomp.git
-          git fetch --no-tags upstream main
-          up=$(git rev-parse --short=10 upstream/main)
-          tag="treino-$up"
+          git fetch --no-tags upstream main '+refs/tags/v*:refs/tags/v*'
+          ver=$(git tag -l 'v*' --sort=-v:refname | head -1)
+          if [ -z "$ver" ]; then echo "::error::Nenhuma versão oficial (tag v*) encontrada."; exit 1; fi
+          mod=$(git rev-parse --short=7 HEAD)
+          tag="treino-$ver-$mod"
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
-          echo "upstream=$up" >> "$GITHUB_OUTPUT"
+          echo "version=$ver" >> "$GITHUB_OUTPUT"
           if gh release view "$tag" >/dev/null 2>&1 && [ "$FORCE" != "true" ]; then
-            echo "A versão oficial $up já foi publicada com o mod: nada a fazer."
+            echo "A versão oficial $ver já foi publicada com este mod: nada a fazer."
             echo "skip=1" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          if ! git merge --no-edit upstream/main; then
-            git merge --abort || true
-            echo "::error title=Conflito com a versão oficial::O projeto oficial mudou linhas que o mod também muda. A última versão publicada continua valendo; o mod precisa ser ajustado."
-            exit 1
-          fi
+          # os commits do mod: os desta main que não estão na main oficial
+          commits=$(git rev-list --reverse --no-merges upstream/main..HEAD)
+          echo "Versão oficial: $ver"; echo "Commits do mod:"; git log --oneline --no-merges upstream/main..HEAD
+          git checkout -q -B treino-build "$ver"
+          for c in $commits; do
+            if ! git cherry-pick -x "$c"; then
+              git cherry-pick --abort || true
+              echo "::error title=Conflito com a versão oficial::A versão $ver mudou linhas que o mod também muda (commit $c). A última versão publicada continua valendo; o mod precisa ser ajustado."
+              exit 1
+            fi
+          done
           echo "skip=0" >> "$GITHUB_OUTPUT"
 
       # O mesmo contêiner de compilação do release.yml (com o mesmo cache)
@@ -81,9 +95,11 @@ jobs:
 
       - name: Compilar
         if: steps.sync.outputs.skip == '0'
+        env:
+          BT3_BUILD_KEY: ${{ secrets.BT3_BUILD_KEY }}   # vazia sem o secret: programa sem chave
         run: |
           mkdir -p port/build
-          docker run --rm -u "$(id -u):$(id -g)" -e HOME=/tmp -v "$PWD":/src -w /src \
+          docker run --rm -u "$(id -u):$(id -g)" -e HOME=/tmp -e BT3_BUILD_KEY -v "$PWD":/src -w /src \
             bt3-port-release:jammy sh port/release/inside.sh
 
       - name: Publicar
@@ -91,11 +107,11 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ steps.sync.outputs.tag }}
-          UP: ${{ steps.sync.outputs.upstream }}
+          UP: ${{ steps.sync.outputs.version }}
         run: |
           mv port/build/Tenkaichi3Decomp-windows-x64.zip "port/build/Tenkaichi3Decomp-treino-windows-x64.zip"
           cat > notes.md <<EOF
-          Tenkaichi3Decomp com o **Treino de Z-Counter** (aba Treino no F1), feito sobre a versão oficial \`$UP\`.
+          Tenkaichi3Decomp com o **Treino de Z-Counter** (aba Treino no F1), feito sobre a versão oficial **$UP**.
 
           **Como instalar:** baixe o zip abaixo, renomeie o seu \`Tenkaichi3Decomp.exe\` para \`Tenkaichi3Decomp-original.exe\`
           (para jogar online) e copie o \`Tenkaichi3Decomp.exe\` de dentro do zip para a pasta do jogo.
